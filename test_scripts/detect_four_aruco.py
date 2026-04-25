@@ -5,15 +5,18 @@ an image when IDs 0, 1, 2, and 3 are all present in the same frame.
 """
 
 from picamera2 import Picamera2
+import argparse
 import cv2
 import time
+import os
 import signal
 import sys
 import select
+from datetime import datetime
 
 DICT_TYPE = cv2.aruco.DICT_6X6_250
 REQUIRED_IDS = {0, 1, 2, 3}
-SAVE_PATH = "all_markers_shot.jpg"
+DEFAULT_FILE_BASENAME = "all_markers_shot"
 
 stop_requested = False
 
@@ -34,7 +37,33 @@ def _terminal_requested_quit() -> bool:
         return text == "q"
     return False
 
+
+def _parse_args():
+    parser = argparse.ArgumentParser(
+        description="Capture an image when all required ArUco markers are detected."
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory where captured images are saved.",
+    )
+    parser.add_argument(
+        "--name",
+        default=DEFAULT_FILE_BASENAME,
+        help="Base filename for captured images (timestamp is appended).",
+    )
+    return parser.parse_args()
+
+
+def _build_capture_path(output_dir: str, base_name: str, extension: str = "jpg") -> str:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{base_name}_{timestamp}.{extension}"
+    return os.path.join(output_dir, filename)
+
 def main():
+    args = _parse_args()
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # Allow graceful shutdown via Ctrl+C or SIGTERM.
     signal.signal(signal.SIGINT, _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
@@ -68,8 +97,9 @@ def main():
                 detected_ids = set(ids.flatten().tolist())
                 # Trigger only when all required marker IDs are simultaneously visible.
                 if REQUIRED_IDS.issubset(detected_ids) and not captured:
-                    cv2.imwrite(SAVE_PATH, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-                    print(f"Saved {SAVE_PATH}")
+                    save_path = _build_capture_path(args.output_dir, args.name)
+                    cv2.imwrite(save_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                    print(f"Saved {save_path}")
                     captured = True
 
             # Visual overlay helps debug missed detections.

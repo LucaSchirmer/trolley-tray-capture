@@ -7,6 +7,7 @@ input (q + Enter / Ctrl+C).
 """
 
 from picamera2 import Picamera2
+import argparse
 import cv2
 import time
 import os
@@ -14,11 +15,12 @@ import signal
 import sys
 import select
 import numpy as np
+from datetime import datetime
 
 DICT_TYPE = cv2.aruco.DICT_6X6_1000
 TARGET_ID = 0
-SAVE_PATH = "single_marker_shot.jpg"
-EXPECTED_PATH = "expected_target_aruco.png"
+DEFAULT_FILE_BASENAME = "single_marker_shot"
+EXPECTED_FILE_BASENAME = "expected_target_aruco"
 
 stop_requested = False
 
@@ -39,7 +41,38 @@ def _terminal_requested_quit() -> bool:
         return text == "q"
     return False
 
+
+def _parse_args():
+    parser = argparse.ArgumentParser(
+        description="Capture an image when one target ArUco marker is detected."
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory where captured images are saved.",
+    )
+    parser.add_argument(
+        "--name",
+        default=DEFAULT_FILE_BASENAME,
+        help="Base filename for captured images (timestamp is appended).",
+    )
+    parser.add_argument(
+        "--show-expected",
+        action="store_true",
+        help="Generate and display the expected target ArUco marker image.",
+    )
+    return parser.parse_args()
+
+
+def _build_capture_path(output_dir: str, base_name: str, extension: str = "jpg") -> str:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{base_name}_{timestamp}.{extension}"
+    return os.path.join(output_dir, filename)
+
 def main():
+    args = _parse_args()
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # Allow graceful shutdown via Ctrl+C or SIGTERM.
     signal.signal(signal.SIGINT, _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
@@ -59,13 +92,15 @@ def main():
 
     detector = cv2.aruco.ArucoDetector(aruco_dict, params)
 
-    # Save expected marker image so the user knows what to present.
-    marker_preview = np.zeros((400, 400), dtype=np.uint8)
-    cv2.aruco.generateImageMarker(aruco_dict, TARGET_ID, 400, marker_preview, 1)
-    cv2.imwrite(EXPECTED_PATH, marker_preview)
+    if args.show_expected:
+        # Save expected marker image so the user knows what to present.
+        marker_preview = np.zeros((400, 400), dtype=np.uint8)
+        cv2.aruco.generateImageMarker(aruco_dict, TARGET_ID, 400, marker_preview, 1)
+        expected_path = _build_capture_path(args.output_dir, EXPECTED_FILE_BASENAME, "png")
+        cv2.imwrite(expected_path, marker_preview)
 
-    print(f"Expected marker saved as: {EXPECTED_PATH}")
-    os.system(f"timg {EXPECTED_PATH}")
+        print(f"Expected marker saved as: {expected_path}")
+        os.system(f"timg {expected_path}")
 
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration())
@@ -74,8 +109,6 @@ def main():
     print("Press q then Enter in terminal to quit.")
 
     captured = False
-    start_time = time.time()
-
     try:
         while True:
             # SSH-friendly termination path from terminal input/signals.
@@ -95,8 +128,9 @@ def main():
 
                     # Persist first frame containing the target marker ID.
                     if TARGET_ID in detected_ids and not captured:
-                        cv2.imwrite(SAVE_PATH, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-                        print(f"Saved {SAVE_PATH}")
+                        save_path = _build_capture_path(args.output_dir, args.name)
+                        cv2.imwrite(save_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                        print(f"Saved {save_path}")
                         captured = True
                 else:
                     print("No marker detected")
