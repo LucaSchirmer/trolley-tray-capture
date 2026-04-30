@@ -1,0 +1,7 @@
+{
+  "aruco_dictionary": "DICT_6X6_250",
+  "required_ids": [0, 1, 2, 3],
+  "default_output_basename": "all_markers_shot",
+  "camera_warmup_seconds": 2,
+  "window_name": "Configured ArUco Trigger"
+}
