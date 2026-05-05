@@ -48,6 +48,11 @@ def _parse_args():
         default=DEFAULT_CONFIG_PATH,
         help="Path to the JSON config file.",
     )
+    parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help="Disable the OpenCV preview window for headless or SSH-only setups.",
+    )
     return parser.parse_args()
 
 
@@ -90,6 +95,10 @@ def _to_display_frame(frame):
     return frame
 
 
+def _display_available() -> bool:
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
 def main():
     args = _parse_args()
     config = _load_config(args.config)
@@ -100,6 +109,7 @@ def main():
     dict_type = _resolve_dictionary(config["aruco_dictionary"])
     aruco_dict = cv2.aruco.getPredefinedDictionary(dict_type)
     detector = cv2.aruco.ArucoDetector(aruco_dict, cv2.aruco.DetectorParameters())
+    preview_enabled = not args.no_preview and _display_available()
 
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration())
@@ -109,6 +119,8 @@ def main():
     print(f"Loaded config: {args.config}")
     print(f"Dictionary: {config['aruco_dictionary']}")
     print("Press q then Enter in terminal to quit.")
+    if not preview_enabled:
+        print("Preview window disabled; running in headless mode.")
 
     try:
         while True:
@@ -129,17 +141,19 @@ def main():
             else:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] No marker detected")
 
-            cv2.aruco.drawDetectedMarkers(display_frame, corners, ids)
-            cv2.imshow(str(config["window_name"]), display_frame)
+            if preview_enabled:
+                cv2.aruco.drawDetectedMarkers(display_frame, corners, ids)
+                cv2.imshow(str(config["window_name"]), display_frame)
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
     finally:
         try:
             picam2.stop()
         except Exception:
             pass
-        cv2.destroyAllWindows()
+        if preview_enabled:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

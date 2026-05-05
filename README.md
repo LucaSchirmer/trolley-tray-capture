@@ -113,8 +113,9 @@ python test_scripts/detect_aruco_ids.py
 Optional arguments:
 
 - `--config` Path to the JSON config file (default: `configs/aruco_detection_config.json`)
+- `--no-preview` Disable the OpenCV window when running over SSH or on a headless Pi
 
-This script uses the configured dictionary from the JSON file, draws detected markers in the preview window, and prints lines like `Detected IDs: [0, 3]` or `No marker detected`.
+This script uses the configured dictionary from the JSON file and prints lines like `Detected IDs: [0, 3]` or `No marker detected`. If a display is available, it also shows the OpenCV preview window with detected markers drawn on top.
 
 ## Output filenames
 
