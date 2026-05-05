@@ -74,6 +74,22 @@ def _resolve_dictionary(dictionary_name: str):
     return getattr(cv2.aruco, dictionary_name)
 
 
+def _to_gray(frame):
+    if frame.ndim == 2:
+        return frame
+    if frame.shape[2] == 4:
+        return cv2.cvtColor(frame, cv2.COLOR_RGBA2GRAY)
+    return cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+
+def _to_display_frame(frame):
+    if frame.ndim == 2:
+        return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+    if frame.shape[2] == 4:
+        return cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+    return frame
+
+
 def main():
     args = _parse_args()
     config = _load_config(args.config)
@@ -101,7 +117,8 @@ def main():
                 break
 
             frame = picam2.capture_array()
-            gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            gray = _to_gray(frame)
+            display_frame = _to_display_frame(frame)
 
             corners, ids, rejected = detector.detectMarkers(gray)
             del rejected
@@ -112,8 +129,8 @@ def main():
             else:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] No marker detected")
 
-            cv2.aruco.drawDetectedMarkers(frame, corners, ids)
-            cv2.imshow(str(config["window_name"]), frame)
+            cv2.aruco.drawDetectedMarkers(display_frame, corners, ids)
+            cv2.imshow(str(config["window_name"]), display_frame)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
