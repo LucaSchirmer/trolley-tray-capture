@@ -36,22 +36,13 @@ Optional arguments:
 - `--config` Path to the JSON config file
 - `--output-dir` Directory where images are saved (default: current directory)
 - `--name` Optional filename base override
+- `--no-preview` Disable the OpenCV window when running over SSH or on a headless Pi
 
 Edit `configs/aruco_detection_config.json` to choose:
 
 - `aruco_dictionary` (for example `DICT_6X6_250`)
 - `required_ids` (the marker IDs that must all be visible)
 - output naming and camera/window settings
-
-### Continuous camera preview
-
-Use this when you want a live, endless Pi camera preview on a connected screen:
-
-```bash
-python test_scripts/continuous_camera_preview.py
-```
-
-Press `q` in the preview window or use `Ctrl+C` to stop it.
 
 ### Test scripts
 
@@ -131,4 +122,5 @@ If `--show-expected` is used in `detect_one_aruco.py`, the expected marker image
 
 - The final script reads marker configuration from `configs/aruco_detection_config.json`.
 - Run the package entry point with `python -m src.capture_aruco_configured` so imports resolve cleanly.
+- Use `--no-preview` if the machine has no display server available.
 

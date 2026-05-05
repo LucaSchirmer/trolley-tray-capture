@@ -57,6 +57,11 @@ def _parse_args():
         default=None,
         help="Optional base filename override for captured images.",
     )
+    parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help="Disable the OpenCV preview window for headless or SSH-only setups.",
+    )
     return parser.parse_args()
 
 
@@ -64,6 +69,26 @@ def _build_capture_path(output_dir: str, base_name: str, extension: str = "jpg")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{base_name}_{timestamp}.{extension}"
     return os.path.join(output_dir, filename)
+
+
+def _to_gray(frame):
+    if frame.ndim == 2:
+        return frame
+    if frame.shape[2] == 4:
+        return cv2.cvtColor(frame, cv2.COLOR_RGBA2GRAY)
+    return cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+
+def _to_display_frame(frame):
+    if frame.ndim == 2:
+        return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+    if frame.shape[2] == 4:
+        return cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+    return frame
+
+
+def _display_available() -> bool:
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
 def main():
@@ -77,6 +102,7 @@ def main():
     dict_type = resolve_dictionary(config["aruco_dictionary"])
     required_ids = {int(marker_id) for marker_id in config["required_ids"]}
     base_name = args.name if args.name else str(config["default_output_basename"])
+    preview_enabled = not args.no_preview and _display_available()
 
     detector_wrapper = ArucoDetectorWrapper(dict_type)
 
@@ -87,6 +113,8 @@ def main():
     print(f"Dictionary: {config['aruco_dictionary']}")
     print(f"Required IDs: {sorted(required_ids)}")
     print("Press q then Enter in terminal to quit.")
+    if not preview_enabled:
+        print("Preview window disabled; running in headless mode.")
 
     captured = False
 
@@ -97,7 +125,8 @@ def main():
                 break
 
             frame = picam.capture_array()
-            gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            gray = _to_gray(frame)
+            display_frame = _to_display_frame(frame)
 
             corners, ids, rejected = detector_wrapper.detect(gray)
             # rejected is unused in this flow
@@ -106,21 +135,23 @@ def main():
                 detected_ids = set(ids.flatten().tolist())
                 if required_ids.issubset(detected_ids) and not captured:
                     save_path = _build_capture_path(args.output_dir, base_name)
-                    cv2.imwrite(save_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                    cv2.imwrite(save_path, cv2.cvtColor(display_frame, cv2.COLOR_RGB2BGR))
                     print(f"Saved {save_path}")
                     captured = True
 
-            cv2.aruco.drawDetectedMarkers(frame, corners, ids)
-            cv2.imshow(str(config["window_name"]), frame)
+            if preview_enabled:
+                cv2.aruco.drawDetectedMarkers(display_frame, corners, ids)
+                cv2.imshow(str(config["window_name"]), display_frame)
 
-            if cv2.waitKey(1) & 0xFF == ord("q") or captured:
+            if (preview_enabled and cv2.waitKey(1) & 0xFF == ord("q")) or captured:
                 break
     finally:
         try:
             cam.stop()
         except Exception:
             pass
-        cv2.destroyAllWindows()
+        if preview_enabled:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
