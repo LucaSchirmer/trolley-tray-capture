@@ -102,6 +102,20 @@ Example:
 python test_scripts/detect_four_aruco.py --output-dir captures --name all_visible
 ```
 
+#### 3) Print every detected ArUco ID
+
+Use this when you want a simple debug view that prints the marker IDs visible in each frame:
+
+```bash
+python test_scripts/detect_aruco_ids.py
+```
+
+Optional arguments:
+
+- `--config` Path to the JSON config file (default: `configs/aruco_detection_config.json`)
+
+This script uses the configured dictionary from the JSON file, draws detected markers in the preview window, and prints lines like `Detected IDs: [0, 3]` or `No marker detected`.
+
 ## Output filenames
 
 Captured images always include a timestamp and are written as:

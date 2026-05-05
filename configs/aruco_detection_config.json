@@ -1,5 +1,5 @@
 {
-  "aruco_dictionary": "DICT_6X6_250",
+  "aruco_dictionary": "DICT_4X4_50",
   "required_ids": [0, 1, 2, 3],
   "default_output_basename": "all_markers_shot",
   "camera_warmup_seconds": 2,
