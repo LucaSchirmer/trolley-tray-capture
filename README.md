@@ -38,6 +38,11 @@ Optional arguments:
 - `--name` Optional filename base override
 - `--no-preview` Disable the OpenCV window when running over SSH or on a headless Pi
 
+New optional arguments (high-quality captures):
+
+- `--resolution` Capture resolution as `WIDTHxHEIGHT` (e.g. `3280x2464`) to request a higher-resolution still image from the camera.
+- `--quality` JPEG quality (0-100) used when writing images; higher values produce better images but larger files (default: 95).
+
 Edit `configs/aruco_detection_config.json` to choose:
 
 - `aruco_dictionary` (for example `DICT_6X6_250`)
@@ -123,4 +128,25 @@ If `--show-expected` is used in `detect_one_aruco.py`, the expected marker image
 - The final script reads marker configuration from `configs/aruco_detection_config.json`.
 - Run the package entry point with `python -m src.capture_aruco_configured` so imports resolve cleanly.
 - Use `--no-preview` if the machine has no display server available.
+
+## High-quality capture helper
+
+For Linux, use the shell helper script [scripts/run_high_quality.sh](scripts/run_high_quality.sh).
+
+Run it with:
+
+```bash
+chmod +x scripts/run_high_quality.sh
+./scripts/run_high_quality.sh
+```
+
+Equivalent direct command:
+
+```bash
+python -m src.capture_aruco_configured --output-dir pasta-pesto --resolution 3280x2464 --quality 95
+```
+
+Notes:
+- The requested resolution must be supported by your camera/sensor and Picamera2 driver; otherwise the camera will fall back to a supported size.
+- Increase `--quality` to improve JPEG compression quality (maximum 100).
 

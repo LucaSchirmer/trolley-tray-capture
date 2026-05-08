@@ -53,6 +53,11 @@ def _parse_args():
         help="Directory where captured images are saved.",
     )
     parser.add_argument(
+        "--resolution",
+        default=None,
+        help="Capture resolution as WIDTHxHEIGHT (e.g. 3280x2464) for higher-quality still images.",
+    )
+    parser.add_argument(
         "--name",
         default=None,
         help="Optional base filename override for captured images.",
@@ -61,6 +66,12 @@ def _parse_args():
         "--no-preview",
         action="store_true",
         help="Disable the OpenCV preview window for headless or SSH-only setups.",
+    )
+    parser.add_argument(
+        "--quality",
+        type=int,
+        default=95,
+        help="JPEG quality for saved images (0-100, higher is better).",
     )
     return parser.parse_args()
 
@@ -96,6 +107,16 @@ def main():
     config = load_config(args.config)
     os.makedirs(args.output_dir, exist_ok=True)
 
+    # Parse requested resolution (WIDTHxHEIGHT)
+    resolution_tuple = None
+    if args.resolution:
+        try:
+            parts = args.resolution.lower().split("x")
+            if len(parts) == 2:
+                resolution_tuple = (int(parts[0]), int(parts[1]))
+        except Exception:
+            print(f"Warning: invalid resolution '{args.resolution}', using default camera settings.")
+
     signal.signal(signal.SIGINT, _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
 
@@ -107,7 +128,11 @@ def main():
     detector_wrapper = ArucoDetectorWrapper(dict_type)
 
     cam = Camera(warmup_seconds=config["camera_warmup_seconds"])
-    picam = cam.start()
+    # If a resolution was requested, prefer a still (high-res) configuration
+    if resolution_tuple is not None:
+        picam = cam.start(resolution=resolution_tuple, mode="still")
+    else:
+        picam = cam.start()
 
     print(f"Loaded config: {args.config}")
     print(f"Dictionary: {config['aruco_dictionary']}")
@@ -135,7 +160,11 @@ def main():
                 detected_ids = set(ids.flatten().tolist())
                 if required_ids.issubset(detected_ids) and not captured:
                     save_path = _build_capture_path(args.output_dir, base_name)
-                    cv2.imwrite(save_path, cv2.cvtColor(display_frame, cv2.COLOR_RGB2BGR))
+                    cv2.imwrite(
+                        save_path,
+                        cv2.cvtColor(display_frame, cv2.COLOR_RGB2BGR),
+                        [int(cv2.IMWRITE_JPEG_QUALITY), max(0, min(100, int(args.quality)))],
+                    )
                     print(f"Saved {save_path}")
                     captured = True
 
